@@ -46,8 +46,8 @@ def skew(w):
     return np.array([[0, -w[2], w[1]], [w[2], 0, -w[0]], [-w[1], w[0], 0]])
 
 def twist2ht(S, theta):
-    w = S[:, :3].T
-    w_ss = skew(w)
+    w = S[:, :3]
+    w_ss = skew(w[0])
 
     R = np.eye(3) + np.sin(theta) * w_ss + (1 - np.cos(theta)) * (w_ss @ w_ss)
 
@@ -55,7 +55,7 @@ def twist2ht(S, theta):
 
     v = S[:, 3:].T
 
-    T = np.vstack((np.hstack((R, TopRight @ v)), [0, 0, 0, 1]))
+    T = np.vstack((np.hstack((R, TopRight @ v)), np.array([0, 0, 0, 1])))
 
     return T
 
@@ -143,7 +143,29 @@ def MatrixLog3(R):
 
     return so3mat
 
-physicsClient = p.connect(p.GUI) 
+
+def MatrixLog6(T):
+    R = T[:3, :3]
+    p = T[:3, 3]
+    omg_mat = MatrixLog3(R)
+    if omg_mat == np.zeros((3, 3)):
+        exp_mat = np.vstack([np.hstack([np.zeros((3, 3), T[:3, 4])]),
+                             [0, 0, 0, 0]])
+    else:
+        theta = np.acos((np.trace(R) - 1) / 2)
+        a = (np.eye(3) - omg_mat / 2 + (1 / theta - 1.0/np.tan(theta/2) / 2) * omg_mat * omg_mat / theta) * p
+        exp_mat = np.vstack([omg_mat, a,
+                             [0, 0, 0, 0]])
+
+    return exp_mat
+
+
+theta = .57
+s = np.array([[1, 2, 3, 4, 5, 6]])
+b = twist2ht(s, theta)
+
+
+physicsClient = p.connect(p.GUI)
 p.setAdditionalSearchPath(pybullet_data.getDataPath())  
 
 planeId = p.loadURDF("plane.urdf")
