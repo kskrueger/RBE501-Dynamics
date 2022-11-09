@@ -61,16 +61,54 @@ def twist2ht(S, theta):
 
 def axisangle2rot(omega, theta):
     omega_ss = skew(omega)
-    R = np.eye(3) + np.sin(theta) * omega_ss + (1 - np.cos(theta)) * (omega_ss @ w_ss)
+    R = np.eye(3) + np.sin(theta) * omega_ss + (1 - np.cos(theta)) * (omega_ss @ omega_ss)
     return R
 
 def fkine_space(S, M, q):
+
     S_ss = np.zeros(4,4*S.shape[1])
     for i in range(S.shape[1]):
         Si_ss = twist2ht(S[:, i], q[i])
         S_ss[:, 4*i-3:4*i] = Si_ss
 
+    e_Stheta = np.zeros(4,4*S.shape[1])
+    for i in range(S.shape[1]):
+        w = S[:, :3]
+        v = S[:, 3:]
+        e_Sitheta = np.vstack([axisangle2rot(w, q[i]), (((np.eye(3) * q[i]) + ((1 - np.cos(q[i])) * skew(w)) + ((q[i] - np.sin(q[i]))) @ (skew(w) @ skew(w))) @ v)], [0, 0, 0, 1])
+        e_Stheta[:, 4*i-3:4*i] = e_Sitheta
 
+    T = np.eye(4)
+
+    for i in range(S.shape[1]):
+        T = T @ e_Stheta[1:4,4*i-3:4*i]
+
+    T = T @ M
+
+    return T
+
+def adjoint(vector, T):
+    R = T[:3, :3]
+    P = T[:3, 3]
+
+    AdjM = np.zeros((6,6))
+    AdjM[:3, :3] = R
+    AdjM[3:, :3] = skew(P) @ R
+    AdjM[4:, 4:] = R
+
+    return AdjM @ vector
+
+def jacob0(S,q):
+
+    Js = np.zeros((6,S.shape[1]))
+    T = np.eye(4)
+
+    for i in range(S.shape[1]):
+        T = T @ twist2ht(S[:,i],q[i])
+
+        Js[:,i] = adjoint(S[:,i], T)
+
+    return Js
 
 physicsClient = p.connect(p.GUI) 
 p.setAdditionalSearchPath(pybullet_data.getDataPath())  
