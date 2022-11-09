@@ -64,7 +64,7 @@ def axisangle2rot(omega, theta):
     R = np.eye(3) + np.sin(theta) * omega_ss + (1 - np.cos(theta)) * (omega_ss @ omega_ss)
     return R
 
-def fkine_space(S, M, q):
+def calc_fkine_space(S, M, q):
 
     S_ss = np.zeros(4,4*S.shape[1])
     for i in range(S.shape[1]):
@@ -109,6 +109,39 @@ def jacob0(S,q):
         Js[:,i] = adjoint(S[:,i], T)
 
     return Js
+
+def calc_ik(robot, targetPose):
+    currentPose = get_poses(robot)
+    currentQ = get_joint_variables(robot)
+
+    while np.linalg.norm(targetPose - currentPose) > 0.001:
+        J = jacob0(robot.S, currentQ)
+        deltaQ = np.invert(J) @ (targetPose - currentPose)
+        currentQ = currentQ + deltaQ.T
+
+        T = calc_fkine_space(robot.S, robot.M, currentQ)
+        currentPose = MatrixLog6(T)
+        currentPose = np.vstack((currentPose[2,1], currentPose[0,2], currentPose[1,0], currentPose[0,3], currentPose[1,3], currentPose[2,3]))
+
+    return currentPose
+
+def MatrixLog3(R):
+    acosinput = (np.trace(R) - 1)/2
+    if acosinput >= 1:
+        so3mat = np.zeros((3,3))
+    elif acosinput <= -1:
+        if ~np.isclose(1 + R[3,3]):
+            omg = (1 / np.sqrt(2 * (1 + R[3,3]))) @ (np.vstack([R[1,3], R[2,3], (1 + R[3,3])]))
+        elif ~np.isclose(1 + R[2,2]):
+            omg = (1 / np.sqrt(2 * (1 + R[2, 2]))) @ (np.vstack([R[1, 2], (1 + R[2, 2]), R[3, 2]]))
+        else:
+            omg = (1 / np.sqrt(2 * (1 + R[1, 1]))) @ (np.vstack([(1 + R[1, 1]), R[2, 1], R[3, 1]]))
+        so3mat = skew(np.pi * omg)
+    else:
+        theta = np.arccos(acosinput)
+        so3mat = theta * (1 / (2 * np.sin(theta))) * (R - R.T)
+
+    return so3mat
 
 physicsClient = p.connect(p.GUI) 
 p.setAdditionalSearchPath(pybullet_data.getDataPath())  
