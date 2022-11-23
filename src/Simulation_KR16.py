@@ -5,10 +5,12 @@ import time
 import os
 
 # home_directory = os.getcwd()
-KR16_model =r"C:\Users\malte\Desktop\Project_Dynamics\RBE501-Dynamics\kuka_models\kuka_experimental-melodic-devel\kuka_kr16_support\urdf\kr16_2.urdf"
+# KR16_model =r"C:\Users\malte\Desktop\Project_Dynamics\RBE501-Dynamics\kuka_models\kuka_experimental-melodic-devel\kuka_kr16_support\urdf\kr16_2.urdf"
+UR5_model = r"C:\Users\malte\Desktop\Project_Dynamics\RBE501-Dynamics\UR5\urdf\ur5.urdf"
+
 
 def get_joint_info(robot):
-    joints = p.getNumJoints(robot) - 2
+    joints = p.getNumJoints(robot)
 
     name = []
     joint_type = []
@@ -25,7 +27,8 @@ def get_joint_info(robot):
     return name, joint_type, lower_limit, upper_limit
 
 def get_joint_variables(robot):
-    joints = p.getNumJoints(robot) - 2
+    print(p.getNumJoints(robot))
+    joints = p.getNumJoints(robot) -4
     return [j[0] for j in p.getJointStates(robot, range(joints))]
 
 def get_joint_velocities(robot):
@@ -185,32 +188,58 @@ physicsClient = p.connect(p.GUI)
 p.setAdditionalSearchPath(pybullet_data.getDataPath())  
 
 planeId = p.loadURDF("plane.urdf")
-robot_left = p.loadURDF(KR16_model, [0, 0, 0], useFixedBase=1)
-robot_right = p.loadURDF(KR16_model, [0, 3, 0], useFixedBase=1)
+robot_left = p.loadURDF(UR5_model, [0, 0, 0], useFixedBase=1)
+#robot_left = p.loadURDF(KR16_model, [0, 0, 0], useFixedBase=1)
+#robot_right = p.loadURDF(KR16_model, [0, 3, 0], useFixedBase=1)
+info,_,_,_ = get_joint_info(robot_left)
+# print(p.getNumJoints(robot_left))
+print(info)
+
 
 #simulation parameters
 p.setGravity(0, 0, -9.81) 
 p.setTimeStep(0.0001) 
 p.setRealTimeSimulation(0)
 
-num_joints = p.getNumJoints(robot_left) - 2      #two fixed joints are used in urdf
+num_joints = p.getNumJoints(robot_left)      
 
 #Spawning at initial configurations
 p.setJointMotorControlArray(
 robot_left, range(num_joints), p.POSITION_CONTROL,
-targetPositions=[0,0,0,0,0,0], positionGains = [0.01,0,0,0,0,0])
+targetPositions=[0,0,0,0,1.57,0,0,0,0,0], positionGains = [0,0,0,0,1,0,0,0,0,0])
 
-p.setJointMotorControlArray(
-robot_right, range(num_joints), p.POSITION_CONTROL,
-targetPositions=[0,0,0,0,0,0], positionGains = [0.01,0,0,0,0,0])
-time.sleep(1. / 240.)
+# p.setJointMotorControlArray(
+# robot_right, range(num_joints), p.POSITION_CONTROL,
+# targetPositions=[0,0,0,0,0,0], positionGains = [0.01,0,0,0,0,0])
+# time.sleep(1. / 240.)
 
-start = np.array([0, 0, 0])
-goal = np.array([3, 2, 1])
-path = path_line(start, goal)
+# start = np.array([0, 0, 0])
+# goal = np.array([3, 2, 1])
+# path = path_line(start, goal)
+
+# arm lengths
+d1 = 0.089159 # [m]
+d4 = 0.10915 #[m]
+d5 = 0.09465 #[m]
+d6 = 0.0823 #[m]
+a2 = 0.425 #[m]
+a3 = 0.39225 #[m]
+a4 = 0
+a6 = 0
+
+# Twists and Home config
+S = np.transpose( np.array([[0, 0, 1, 0, 0, 0], [0, -1, 0, d1, 0, 0], [0, -1, 0, d1, 0, -a2], 
+       [0, -1, 0, d1, 0, -(a2+a3)], [0, 0, -1, 0, a2+a3+a4, 0], [0, -1, 0, d1-d5, 0, -(a2+a3+a4)] ]))
+    
+M=np.array([[1, 0, 0, a2+a3+a4+a6],[0,0,-1,0],[0, 1, 0, d1-d5-d6],[0,0,0,1]])
+
 
 for i in range(10000):
     p.stepSimulation()
+
+    # Forward Kinematics
+
+    T = calc_fkine_space(S,M,get_joint_variables(robot_left))
 
     #To-Do:
     '''
@@ -218,17 +247,17 @@ for i in range(10000):
     '''
 
     #hard-coded joint variables
-    q_left = [0,0,0,0,0,0]
-    q_right = [0,0,0,0,0,0]
+    # q_left = [0,0,0,0,0,0]
+    # q_right = [0,0,0,0,0,0]
 
     #Implementing position controllers
-    p.setJointMotorControlArray(
-    robot_left, range(num_joints), p.POSITION_CONTROL,
-    targetPositions= q_left, positionGains = [0.01,0,0,0,0.01,0])
+    # p.setJointMotorControlArray(
+    # robot_left, range(num_joints), p.POSITION_CONTROL,
+    # targetPositions= q_left, positionGains = [0.01,0,0,0,0.01,0])
 
-    p.setJointMotorControlArray(
-    robot_right, range(num_joints), p.POSITION_CONTROL,
-    targetPositions= q_right, positionGains = [0.01,0,0,0,0.01,0])
+    # p.setJointMotorControlArray(
+    # robot_right, range(num_joints), p.POSITION_CONTROL,
+    # targetPositions= q_right, positionGains = [0.01,0,0,0,0.01,0])
     time.sleep(1. / 240.)
 
 p.disconnect()
