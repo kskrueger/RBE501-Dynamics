@@ -3,11 +3,12 @@ import pybullet_data
 import numpy as np
 import time
 import os
-from Kinematics import *
+from Kinematics import calc_fkine_space
 
 # home_directory = os.getcwd()
 # KR16_model =r"C:\Users\malte\Desktop\Project_Dynamics\RBE501-Dynamics\kuka_models\kuka_experimental-melodic-devel\kuka_kr16_support\urdf\kr16_2.urdf"
 UR5_model = r"C:\Users\malte\Desktop\Project_Dynamics\RBE501-Dynamics\UR5\urdf\ur5.urdf"
+# UR5_model = "../UR5/urdf/ur5.urdf"
 
 
 def get_joint_info(robot):
@@ -30,7 +31,7 @@ def get_joint_info(robot):
 def get_joint_variables(robot):
     print(p.getNumJoints(robot))
     joints = p.getNumJoints(robot) -4
-    return [j[0] for j in p.getJointStates(robot, range(joints))]
+    return np.array([j[0] for j in p.getJointStates(robot, range(joints))])
 
 def get_joint_velocities(robot):
     joints = p.getNumJoints(robot) - 2
@@ -63,9 +64,9 @@ def path_line(start, goal):
     return path
 
 
-theta = .57
-s = np.array([[1, 2, 3, 4, 5, 6]])
-b = twist2ht(s, theta)
+# theta = .57
+# s = np.array([[1, 2, 3, 4, 5, 6]])
+# b = twist2ht(s, theta)
 
 
 physicsClient = p.connect(p.GUI)
@@ -127,7 +128,9 @@ for i in range(10000):
 
     # Forward Kinematics
 
-    T = calc_fkine_space(S,M,get_joint_variables(robot_left))
+    q = get_joint_variables(robot_left)
+    T = calc_fkine_space(S,M,q)
+    print(T.round(2))
 
     #To-Do:
     '''
