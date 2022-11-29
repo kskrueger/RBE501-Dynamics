@@ -176,3 +176,29 @@ if __name__ == '__main__':
     targetPose = np.array([[targetPose[2, 1], targetPose[0, 2], targetPose[1, 0], *targetPose[:3, 3]]]).T
 
     print(targetPose)
+
+    # UR5 test
+    # arm lengths
+    d1 = 0.089159  # [m]
+    d4 = 0.10915  # [m]
+    d5 = 0.09465  # [m]
+    d6 = 0.0823  # [m]
+    a2 = 0.425  # [m]
+    a3 = 0.39225  # [m]
+    a4 = 0
+    a6 = 0
+
+    # Twists and Home config
+    S = np.transpose(np.array([[0, 0, 1, 0, 0, 0],
+                               [0, -1, 0, d1, 0, 0],
+                               [0, -1, 0, d1, 0, -a2],
+                               [0, -1, 0, d1, 0, -(a2 + a3)],
+                               [0, 0, -1, 0, a2 + a3 + a4, 0],
+                               [0, -1, 0, d1 - d5, 0, -(a2 + a3 + a4)]]))
+
+    M = np.array([[1, 0, 0, a2 + a3 + a4 + a6], [0, 0, -1, 0], [0, 1, 0, d1 - d5 - d6], [0, 0, 0, 1]])
+
+    q = np.array([0, 0, 0, 0, 0, 0])
+    ur5_fkine = calc_fkine_space(S, M, q)
+    print("ur5_fkine", ur5_fkine)
+    print()
