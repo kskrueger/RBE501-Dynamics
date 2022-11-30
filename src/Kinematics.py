@@ -56,49 +56,50 @@ def jacob0(S, q):
     T = np.eye(4)
 
     for i in range(S.shape[1]):
-        T = T @ twist2ht(S[:, i], q[i])
+        s = S[:, i]
+        T = T @ twist2ht(s, q[i])
 
-        Js[:, i] = adjoint(S[:, i], T)
+        Js[:, i] = adjoint(s, T)
 
     return Js
 
 
-def IK(robot, q):
-    currentPose = robot.getPose()
-    currentQ = robot.getQ()
-
+def jacob_a(S, M, q):
+    J_b = jacob_e(S, M, q)
     T = calc_fkine_space(S, M, q)
-    targetPose = MatrixLog6(T)
-    targetPose = np.array([[targetPose[2, 1], targetPose[0, 2], targetPose[1, 0], *targetPose[:3, 3]]]).T
+    R = T[:3, :3]
+    J_a = R @ J_b[3:, :]
+    return J_a
 
-    while np.linalg.norm(targetPose - currentPose) > 1e-3:
-        J = jacob0(S, q)
-        deltaQ = np.linalg.pinv(J) @ (targetPose - currentPose)
 
-        currentQ = currentQ + deltaQ
-
-        T = calc_fkine_space(S, M, currentQ)
-        currentPose = MatrixLog6(T)
-        currentPose = np.array([[currentPose[2, 1], currentPose[0, 2], currentPose[1, 0], *currentPose[:3, 3]]]).T
-
-        robot.moveTargetQ(currentQ)
+def jacob_e(S, M, q):
+    J = np.zeros((6, S.shape[1]))
+    T = np.eye(4)
+    for i in reversed(range(S.shape[1])):
+        s = S[:, i]
+        T = T @ np.linalg.inv(twist2ht(s, q[i]))
+        twist_inB = adjoint(s, T)
+        J[:, i] = twist_inB
+    return J
 
 
 def calc_ik(get_poses_f, get_joint_variables_f, S, M, targetPose):
-    currentPose = get_poses_f() #(robot)
     currentQ = get_joint_variables_f() #(robot)
+    currentPose = get_poses_f() #(robot)
 
     while np.linalg.norm(targetPose - currentPose) > 0.001:
-        J = jacob0(S, currentQ)
-        deltaQ = np.invert(J) @ (targetPose - currentPose)
+        J = jacob0(S, currentQ.T)
+        # J = jacob_a(S, M, currentQ.T)
+        deltaQ = np.linalg.pinv(J) @ (targetPose - currentPose)
         currentQ = currentQ + deltaQ.T
 
-        T = calc_fkine_space(S, M, currentQ)
+        T = calc_fkine_space(S, M, currentQ.T)
         currentPose = MatrixLog6(T)
-        currentPose = np.vstack((currentPose[2, 1], currentPose[0, 2], currentPose[1, 0], currentPose[0, 3],
-                                 currentPose[1, 3], currentPose[2, 3]))
+        currentPose = np.array([[currentPose[2, 1], currentPose[0, 2], currentPose[1, 0], *currentPose[:3, 3]]]).T
+        print("currQ", currentQ)
+        print("poseError", targetPose - currentPose)
 
-    return currentPose
+    return currentQ
 
 
 def MatrixLog3(R):
@@ -106,12 +107,12 @@ def MatrixLog3(R):
     if acosinput >= 1:
         so3mat = np.zeros((3, 3))
     elif acosinput <= -1:
-        if ~np.isclose(1 + R[3, 3]):
-            omg = (1 / np.sqrt(2 * (1 + R[3, 3]))) @ (np.vstack([R[1, 3], R[2, 3], (1 + R[3, 3])]))
-        elif ~np.isclose(1 + R[2, 2]):
-            omg = (1 / np.sqrt(2 * (1 + R[2, 2]))) @ (np.vstack([R[1, 2], (1 + R[2, 2]), R[3, 2]]))
+        if not np.all((1 + R[2, 2]) < .001):
+            omg = (1 / np.sqrt(2 * (1 + R[2, 2]))) @ (np.vstack([R[0, 2], R[1, 2], (1 + R[2, 2])]))
+        elif not np.all((1 + R[2, 2]) < .001):
+            omg = (1 / np.sqrt(2 * (1 + R[1, 1]))) @ (np.vstack([R[0, 1], (1 + R[1, 1]), R[2, 1]]))
         else:
-            omg = (1 / np.sqrt(2 * (1 + R[1, 1]))) @ (np.vstack([(1 + R[1, 1]), R[2, 1], R[3, 1]]))
+            omg = (1 / np.sqrt(2 * (1 + R[0, 0]))) @ (np.vstack([(1 + R[0, 0]), R[1, 0], R[2, 0]]))
         so3mat = skew(np.pi * omg)
     else:
         theta = np.arccos(acosinput)
@@ -124,8 +125,8 @@ def MatrixLog6(T):
     R = T[:3, :3]
     p = T[:3, 3:]
     omg_mat = MatrixLog3(R)
-    if np.equal(omg_mat, np.zeros((3, 3))).all():
-        exp_mat = np.vstack([np.hstack([np.zeros((3, 3), T[:3, 4])]),
+    if (omg_mat == np.zeros((3, 3))).all():
+        exp_mat = np.vstack([np.hstack([np.zeros((3, 3)), T[:3, 3:]]),
                              [0, 0, 0, 0]])
     else:
         theta = np.arccos((np.trace(R) - 1) / 2.0)
@@ -170,13 +171,6 @@ if __name__ == '__main__':
     q = np.array([1, 2, 3])
     a = calc_fkine_space(S, M, q)
 
-    q0 = np.array([0, 0, 0])
-    T = calc_fkine_space(S, M, q0)
-    targetPose = MatrixLog6(T)
-    targetPose = np.array([[targetPose[2, 1], targetPose[0, 2], targetPose[1, 0], *targetPose[:3, 3]]]).T
-
-    print(targetPose)
-
     # UR5 test
     # arm lengths
     d1 = 0.089159  # [m]
@@ -200,5 +194,26 @@ if __name__ == '__main__':
 
     q = np.array([0, 0, 0, 0, 0, 0])
     ur5_fkine = calc_fkine_space(S, M, q)
-    print("ur5_fkine", ur5_fkine)
+    # print("ur5_fkine", ur5_fkine)
+
+    # Test Inverse Kinematics without pyBullet first
+
+    q0 = np.array([0, 0, 0.1, 0, 0, 0])
+    T = calc_fkine_space(S, M, q0)
+    targetPose = MatrixLog6(T)
+    targetPose = np.array([[targetPose[2, 1], targetPose[0, 2], targetPose[1, 0], *targetPose[:3, 3]]]).T
+
+    print("targetPose", targetPose)
+
+
+    def get_poses_f():
+        home_pose = MatrixLog6(M)
+        return np.array([[home_pose[2, 1], home_pose[0, 2], home_pose[1, 0], *home_pose[:3, 3]]]).T
+
+    def get_joints_f():
+        return np.array([0, 0, 0, 0, 0, 0])
+
+    ik_q = calc_ik(get_poses_f, get_joints_f, S, M, targetPose)
+    print("ik_q", ik_q)
+
     print()
