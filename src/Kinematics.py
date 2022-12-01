@@ -73,14 +73,20 @@ def jacob_a(S, M, q):
 
 
 def jacob_e(S, M, q):
-    J = np.zeros((6, S.shape[1]))
-    T = np.eye(4)
-    for i in reversed(range(S.shape[1])):
-        s = S[:, i]
-        T = T @ np.linalg.inv(twist2ht(s, q[i]))
-        twist_inB = adjoint(s, T)
-        J[:, i] = twist_inB
-    return J
+    Js = jacob0(S, q)
+    T = calc_fkine_space(S, M, q)
+    inv_T = np.linalg.inv(T)
+
+    R = inv_T[:3, :3]
+    P = inv_T[:3, 3]
+
+    AdjM = np.zeros((6, 6))
+    AdjM[:3, :3] = R
+    AdjM[3:, :3] = skew(P) @ R
+    AdjM[3:, 3:] = R
+
+    Jb = AdjM @ Js
+    return Jb
 
 
 def calc_ik(get_poses_f, get_joint_variables_f, S, M, targetPose):
@@ -90,14 +96,20 @@ def calc_ik(get_poses_f, get_joint_variables_f, S, M, targetPose):
     while np.linalg.norm(targetPose - currentPose) > 0.001:
         J = jacob0(S, currentQ.T)
         # J = jacob_a(S, M, currentQ.T)
-        deltaQ = np.linalg.pinv(J) @ (targetPose - currentPose)
+        # deltaQ = np.linalg.pinv(J) @ (targetPose - currentPose)
+
+        # J_a = jacoba(S, M, currentQ); # % Use the Levenberg - Marquadt algorithm(Damped Least Squares)
+        l = 2
+        deltaQ = J.T @ np.linalg.pinv(J*J.T + l**2 * np.eye(6)) @ (targetPose - currentPose)
+
         currentQ = currentQ + deltaQ.T
 
         T = calc_fkine_space(S, M, currentQ.T)
         currentPose = MatrixLog6(T)
         currentPose = np.array([[currentPose[2, 1], currentPose[0, 2], currentPose[1, 0], *currentPose[:3, 3]]]).T
-        print("currQ", currentQ)
-        print("poseError", targetPose - currentPose)
+        # currentPose = T[:3, 3:]
+        # print("currQ", currentQ)
+        # print("poseError", targetPose - currentPose)
 
     return currentQ
 
@@ -157,6 +169,28 @@ def path_line(start, goal):
 
 # Tests
 if __name__ == '__main__':
+    S2 = np.array([[0, 0, 0, 0, 0, 0],
+                   [0, -1.0000, -1.0000, -1.0000, 0, -1.0000],
+                   [1.0000, 0, 0, 0, -1.0000, 0],
+                   [0, 0.0895, 0.0895, 0.0895, 0.1091, -0.0052],
+                   [0, 0, 0, 0, -0.8173, 0],
+                   [0, 0, 0.4250, 0.8173, 0, 0.8173]])
+    M2 = np.array([[1.0000, -0.0000, -0.0000, -0.8172],
+                   [-0.0000, -0.0000, -1.0000, -0.1903],
+                   [0.0000, 1.0000, -0.0000, -0.0052],
+                   [0.0000, -0.0000, -0.0000, 1.0000]])
+    targetP = np.array([[0.4000, 0, 0.2000]])
+    currentP = np.array([[-0.8172, -0.1903, -0.0052]])
+
+    e = jacob_e(S2, M2, np.zeros(6))
+    a = jacob_a(S2, M2, np.zeros(6))
+
+    Js = jacob0(S2, np.zeros((6, 1)))
+
+
+
+
+
     S = np.array([[0, 0, 1.0000, 0, 0, 0],
                   [1.0000, 0, 0, 0, 0.4000, 0],
                   [1.0000, 0, 0, 0, 0.4000, -0.3000]]).T
@@ -183,12 +217,12 @@ if __name__ == '__main__':
     a6 = 0
 
     # Twists and Home config
-    S = np.transpose(np.array([[0, 0, 1, 0, 0, 0],
-                               [0, -1, 0, d1, 0, 0],
-                               [0, -1, 0, d1, 0, -a2],
-                               [0, -1, 0, d1, 0, -(a2 + a3)],
-                               [0, 0, -1, 0, a2 + a3 + a4, 0],
-                               [0, -1, 0, d1 - d5, 0, -(a2 + a3 + a4)]]))
+    S = np.array([[0, 0, 1, 0, 0, 0],
+                   [0, -1, 0, d1, 0, 0],
+                   [0, -1, 0, d1, 0, -a2],
+                   [0, -1, 0, d1, 0, -(a2 + a3)],
+                   [0, 0, -1, 0, a2 + a3 + a4, 0],
+                   [0, -1, 0, d1 - d5, 0, -(a2 + a3 + a4)]]).T
 
     M = np.array([[1, 0, 0, a2 + a3 + a4 + a6], [0, 0, -1, 0], [0, 1, 0, d1 - d5 - d6], [0, 0, 0, 1]])
 
@@ -198,10 +232,11 @@ if __name__ == '__main__':
 
     # Test Inverse Kinematics without pyBullet first
 
-    q0 = np.array([0, 0, 0.1, 0, 0, 0])
+    q0 = np.array([.1, .1, 0.5, .25, .5, .25])
     T = calc_fkine_space(S, M, q0)
     targetPose = MatrixLog6(T)
     targetPose = np.array([[targetPose[2, 1], targetPose[0, 2], targetPose[1, 0], *targetPose[:3, 3]]]).T
+    # targetPose = T[:3, 3:]
 
     print("targetPose", targetPose)
 
@@ -209,11 +244,14 @@ if __name__ == '__main__':
     def get_poses_f():
         home_pose = MatrixLog6(M)
         return np.array([[home_pose[2, 1], home_pose[0, 2], home_pose[1, 0], *home_pose[:3, 3]]]).T
+        # return M[:3, 3:]
 
     def get_joints_f():
         return np.array([0, 0, 0, 0, 0, 0])
 
     ik_q = calc_ik(get_poses_f, get_joints_f, S, M, targetPose)
-    print("ik_q", ik_q)
+    print("ik_q", np.mod(ik_q, np.pi))
+
+    ik_p = calc_fkine_space(S, M, ik_q.T)
 
     print()
