@@ -89,10 +89,10 @@ def jacob_e(S, M, q):
     return Jb
 
 
-def calc_ik(get_poses_f, get_joint_variables_f, S, M, targetPose):
-    currentQ = get_joint_variables_f() #(robot)
-    currentPose = get_poses_f() #(robot)
-
+def calc_ik(startQ, startPose, S, M, targetPoseT):
+    targetPose = convertPoseTo6(targetPoseT)
+    currentQ = startQ[:, None].T
+    currentPose = convertPoseTo6(startPose)
     while np.linalg.norm(targetPose - currentPose) > 0.001:
         J = jacob0(S, currentQ.T)
         # J = jacob_a(S, M, currentQ.T)
@@ -105,14 +105,17 @@ def calc_ik(get_poses_f, get_joint_variables_f, S, M, targetPose):
         currentQ = currentQ + deltaQ.T
 
         T = calc_fkine_space(S, M, currentQ.T)
-        currentPose = MatrixLog6(T)
-        currentPose = np.array([[currentPose[2, 1], currentPose[0, 2], currentPose[1, 0], *currentPose[:3, 3]]]).T
+        currentPose = convertPoseTo6(T)
         # currentPose = T[:3, 3:]
         # print("currQ", currentQ)
         # print("poseError", targetPose - currentPose)
 
     return currentQ
 
+def convertPoseTo6(T):
+    pose6 = MatrixLog6(T)
+    pose6 = np.array([[pose6[2, 1], pose6[0, 2], pose6[1, 0], *pose6[:3, 3]]]).T
+    return pose6
 
 def MatrixLog3(R):
     acosinput = (np.trace(R) - 1) / 2
@@ -234,22 +237,15 @@ if __name__ == '__main__':
 
     q0 = np.array([.1, .1, 0.5, .25, .5, .25])
     T = calc_fkine_space(S, M, q0)
-    targetPose = MatrixLog6(T)
-    targetPose = np.array([[targetPose[2, 1], targetPose[0, 2], targetPose[1, 0], *targetPose[:3, 3]]]).T
+    targetPose = convertPoseTo6(T)
     # targetPose = T[:3, 3:]
 
     print("targetPose", targetPose)
 
 
-    def get_poses_f():
-        home_pose = MatrixLog6(M)
-        return np.array([[home_pose[2, 1], home_pose[0, 2], home_pose[1, 0], *home_pose[:3, 3]]]).T
-        # return M[:3, 3:]
-
-    def get_joints_f():
-        return np.array([0, 0, 0, 0, 0, 0])
-
-    ik_q = calc_ik(get_poses_f, get_joints_f, S, M, targetPose)
+    start_Pose = convertPoseTo6(M)
+    start_q = np.array([0, 0, 0, 0, 0, 0])
+    ik_q = calc_ik(start_Pose, start_q, S, M, targetPose)
     print("ik_q", np.mod(ik_q, np.pi))
 
     ik_p = calc_fkine_space(S, M, ik_q.T)
