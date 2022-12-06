@@ -3,7 +3,7 @@ import pybullet_data
 import numpy as np
 import time
 import os
-from Kinematics import calc_fkine_space, convertPoseTo6, calc_ik
+from Kinematics import calc_fkine_space, convertPoseTo6, calc_ik, jacob_a
 
 # home_directory = os.getcwd()
 # KR16_model =r"C:\Users\malte\Desktop\Project_Dynamics\RBE501-Dynamics\kuka_models\kuka_experimental-melodic-devel\kuka_kr16_support\urdf\kr16_2.urdf"
@@ -35,7 +35,7 @@ class Robot:
         return name, joint_type, lower_limit, upper_limit
 
     def getJointQs(self):
-        print(p.getNumJoints(self.robot))
+        # print(p.getNumJoints(self.robot))
         joints = p.getNumJoints(self.robot)
         return np.array([j[0] for j in p.getJointStates(self.robot, range(joints))])[1:7]
 
@@ -77,7 +77,7 @@ class Robot:
             error = np.linalg.norm(convertPoseTo6(T) - targetT6)
             if error > .87 and error < .89:
                 print("h")
-            print("error", error)
+            #print("error", error)
             if error < .1:
                 return
 
@@ -95,15 +95,15 @@ class Robot:
 def path_line(start, goal):
     # start [x, y, z]
     # goal [x, y, z]
-    N = 100
+    N = 10
     path = []
     distance_x = (goal[0] - start[0])
     distance_y = (goal[1] - start[1])
     distance_z = (goal[2] - start[2])
     for i in range(N + 1):
-        dX = start[0] + i / N * distance_x
-        dY = start[1] + i / N * distance_y
-        dZ = start[2] + i / N * distance_z
+        dX = i / N * distance_x
+        dY = i / N * distance_y
+        dZ = i / N * distance_z
         path.append([start[0] + dX, start[1] + dY, start[2] + dZ])
 
     return path
@@ -155,22 +155,74 @@ time.sleep(5)
 #Spawning at initial configurations
 # q = [0, .5, 0, 0, 1.57, 0]
 q = [0, 0, 0, 0, 0, 0]
+# q = [0.5, 0.5, 0.5, 0.5, 0.7, 0.5]
 # robot_left.setJointsTargetQ(q)
 robot_left.moveTargetQ_noWait(q)
 
-q = [0, .5, 0, 0, 1.57, 0]
-robot_left.moveTargetQ_noWait(q)
+# q = [0, .5, 0, 0, 1.57, 0]
+# robot_left.moveTargetQ_noWait(q)
 
-q = [0, .5, .5, 0, 1.57, 0]
-robot_left.moveTargetQ_noWait(q)
+# q = [0, .5, .5, 0, 1.57, 0]
+# robot_left.moveTargetQ_noWait(q)
 
-for i in range(10):
-    q = np.random.randint(-75, 75, (6)) / 100.0
-    target_T = calc_fkine_space(robot_left.S, robot_left.M, q)
+# for i in range(10):
+#     q = np.random.randint(-75, 75, (6)) / 100.0
+#     target_T = calc_fkine_space(robot_left.S, robot_left.M, q)
 
-    robot_left.moveTargetPose_noWait(target_T)
+#     robot_left.moveTargetPose_noWait(target_T)
 
-    print("DONE")
-    time.sleep(1)
+#     print("DONE")
+#     time.sleep(1)
+
+
+
+
+
+##
+
+currentQ = robot_left.getJointQs()
+Ja = jacob_a(robot_left.S, robot_left.M, currentQ) # space S, Homeconfig, current angles
+start = np.array([a2+a3+a4+a6, 0, d1-d5-d6])
+goal = np.array([0.2,0.25,0.4])
+path = path_line(start, goal)
+
+for i in range(len(path)):
+    target_position = path[i]
+    print(target_position)
+    T = calc_fkine_space(robot_left.S, robot_left.M, currentQ)
+    current_Position = T[0:3,3] # WEIRD ASK KARTRER
+    print(current_Position)
+    T = np.array([[1, 0, 0, target_position[0]],
+              [0, 0, -1, target_position[1]],
+              [0, 1, 0, target_position[2]],
+              [0, 0, 0, 1]])
+              
+    robot_left.moveTargetPose_noWait(T)
+
+    # while np.linalg.norm(target_position-current_Position)> 1e-2:
+    #     currentQ = robot_left.getJointQs()
+    #     Ja = jacob_a(robot_left.S, robot_left.M, currentQ)
+
+    #     # deltaQ = np.linalg.pinv(Ja) @ (target_position-current_Position).T
+    #     l = 0.5
+    #     deltaQ = Ja.T @ np.linalg.pinv(Ja @ Ja.T + (l**2) * np.identity(3)  ) @ (target_position-current_Position)
+    #     targetQ = currentQ + deltaQ
+    #     target_T = calc_fkine_space(robot_left.S, robot_left.M, targetQ)
+    #     robot_left.moveTargetPose_noWait(target_T)
+    #     print(target_position-current_Position)
+    #     print(deltaQ)
+
+    print(i)
+
+
+
+
+    zt=1
+
+
+
+
+
+
 
 p.disconnect()
