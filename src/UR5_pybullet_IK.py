@@ -8,7 +8,12 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.setGravity(0, 0, -9.8)
 planeId = p.loadURDF("plane.urdf")
 p.setRealTimeSimulation(1)
-UR5 = p.loadURDF("/home/kt/Academics/RBE501/RBE501-Dynamics/UR5/urdf/ur5.urdf")
+#UR5 = p.loadURDF("/home/kt/Academics/RBE501/RBE501-Dynamics/UR5/urdf/ur5.urdf") # Krutarth
+UR5 = p.loadURDF(r"E:\GitHub\RBE501-Dynamics\UR5\urdf\ur5.urdf") # Kyle
+CUBE_model = "meshes/small_block.urdf"
+planeId = p.loadURDF("plane.urdf")
+cube_pos = [.5, 0, 0]
+cubeId = p.loadURDF(CUBE_model, cube_pos)
 
 #Go to Home and fetch the pose.
 p.setJointMotorControlArray(
