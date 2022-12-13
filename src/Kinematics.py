@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 
@@ -89,11 +91,12 @@ def jacob_e(S, M, q):
     return Jb
 
 
-def calc_ik(startQ, startPose, S, M, targetPoseT):
+def calc_ik(startQ, startPose, S, M, targetPoseT, max_time=10):
     targetPose = convertPoseTo6(targetPoseT)
     currentQ = startQ[:, None].T
     currentPose = convertPoseTo6(startPose)
-    while np.linalg.norm(targetPose - currentPose) > 0.001:
+    st = time.time()
+    while np.linalg.norm(targetPose - currentPose) > 0.001 and (time.time() - st) < max_time:
         J = jacob0(S, currentQ.T)
         # J = jacob_a(S, M, currentQ.T)
         # deltaQ = np.linalg.pinv(J) @ (targetPose - currentPose)
@@ -109,6 +112,8 @@ def calc_ik(startQ, startPose, S, M, targetPoseT):
         # currentPose = T[:3, 3:]
         # print("currQ", currentQ)
         # print("poseError", targetPose - currentPose)
+    if (time.time() - st) > max_time:
+        print("TIME EXCEEDED - FAIL")
 
     return currentQ
 
