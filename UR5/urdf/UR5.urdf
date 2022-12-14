@@ -112,8 +112,8 @@
       </geometry>
       <origin rpy="0 0 0" xyz="-0.01 0 0"/>
     </collision>
-  </link> -->
-   <!--<joint name='left_gripper_motor' type='prismatic'>
+  </link> 
+  <joint name='left_gripper_motor' type='prismatic'>
     <parent link="wrist_3_link"/>
     <child link="left_gripper"/>
     <origin rpy="-1.57 0.0 0.0" xyz="-0.06 0.1 0.005"/>
