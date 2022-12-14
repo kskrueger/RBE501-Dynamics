@@ -8,9 +8,11 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.setGravity(0, 0, -9.8)
 planeId = p.loadURDF("plane.urdf")
 p.setRealTimeSimulation(1)
-UR5 = p.loadURDF("/home/kt/Academics/RBE501/RBE501-Dynamics/UR5/urdf/UR5.urdf") # Krutarth
-# UR5 = p.loadURDF(r"E:\GitHub\RBE501-Dynamics\UR5\urdf\ur5.urdf") # Kyle
-CUBE_model = "/home/kt/Academics/RBE501/RBE501-Dynamics/src/meshes/small_block.urdf"      
+#UR5 = p.loadURDF("/home/kt/Academics/RBE501/RBE501-Dynamics/UR5/urdf/ur5.urdf") # Krutarth
+# path = r"E:\GitHub\RBE501-Dynamics\UR5\urdf\ur5.urdf"  # Kyle
+path = "../UR5/urdf/ur5.urdf"
+UR5 = p.loadURDF(path)
+CUBE_model = "meshes/small_block.urdf"
 planeId = p.loadURDF("plane.urdf")
 cube_pos = [.5, 0, 0]
 cubeId = p.loadURDF(CUBE_model, cube_pos)
@@ -54,7 +56,6 @@ damping[idx] = 0.1
 p.setJointMotorControlArray(
     UR5, range(len(Q)), p.POSITION_CONTROL,
     targetPositions=Q, positionGains=damping)
-
 
 time.sleep(100)
 

@@ -8,7 +8,7 @@ from Kinematics import calc_fkine_space, convertPoseTo6, calc_ik, jacob_a
 # home_directory = os.getcwd()
 # KR16_model =r"C:\Users\malte\Desktop\Project_Dynamics\RBE501-Dynamics\kuka_models\kuka_experimental-melodic-devel\kuka_kr16_support\urdf\kr16_2.urdf"
 # UR5_model = r"C:\Users\malte\Desktop\Project_Dynamics\RBE501-Dynamics\UR5\urdf\ur5.urdf"
-UR5_model = "../UR5/urdf/ur5.urdf"
+UR5_model = "../UR5/urdf/UR5.urdf"
 # UR5_model = "/home/kt/Academics/RBE501/RBE501-Dynamics/UR5/urdf/ur5.urdf"
 CUBE_model = "meshes/small_block.urdf"
 
@@ -93,6 +93,18 @@ class Robot:
 
         self.moveTargetQ_noWait(target_q, max_time, dt)
 
+    def grasp_object(self, q):
+        num_joints = p.getNumJoints(self.robot)
+        p.setJointMotorControlArray(
+            self.robot, range(num_joints), p.POSITION_CONTROL,
+            targetPositions=[q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], 0.04, -0.04], positionGains=np.ones(10))
+
+    def release_object(self, q):
+        num_joints = p.getNumJoints(self.robot)
+        p.setJointMotorControlArray(
+            self.robot, range(num_joints), p.POSITION_CONTROL,
+            targetPositions=[q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], 0, 0], positionGains=np.ones(10))
+
 
 def path_line(start, goal):
     # start [x, y, z]
@@ -127,12 +139,13 @@ a6 = 0
 #               [0, -1, 0, d1, 0, -(a2 + a3)],
 #               [0, 0, -1, 0, a2 + a3 + a4, 0],
 #               [0, -1, 0, d1 - d5, 0, -(a2 + a3 + a4)]])
-S = np.array([[0,  0,  1, 0, 0, 0],
-              [0, -1,  0, 0.0895, 0, 0],
-              [0, -1,  0, 0.0895, 0, 0.4250],
-              [0, -1,  0, 0.0895, 0, 0.8173],
-              [0,  0, -1, 0.1091, -0.8173, 0],
-              [0, -1, 0, -0.0052, 0, 0.8173]])
+
+S = np.array([[0., 0., 1., 0., 0., 0.],
+              [0., 1., 0., -0.089159, 0., 0.],
+              [0., 1., 0., -0.089159, 0., 0.425],
+              [0., 1., 0., -0.089159, 0., 0.81725],
+              [0., 0., 1., 0.10915, -0.81725, 0.],
+              [0., 1., 0., 0.005491, -0., 0.81725]])
 
 print(S)
 
@@ -143,10 +156,15 @@ print(S)
 #               [0, 1, 0, d1 - d5 - d6],
 #               [0, 0, 0, 1]])
 
-M = np.array([[0, 1, 0,  0.805],
-              [-1, 0, 0, -0.19],
-              [0, 0, 1, 0.354],
-              [0, 0, 0,  1]])
+# M = np.array([[0, 1, 0, 0.805],
+#               [-1, 0, 0, -0.19],
+#               [0, 0, 1, 0.354],
+#               [0, 0, 0, 1]])
+
+M = np.array([[-0., 1., 0., 0.817],
+              [1., 0., 0., 0.191],
+              [0., 0., -1., -0.005],
+              [0., 0., 0., 1.]])
 
 # Build Simulation Environment and setup robot arm(s)
 physicsClient = p.connect(p.GUI)
@@ -154,14 +172,13 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
 planeId = p.loadURDF("plane.urdf")
 cube_pos = [.5, 0, 0]
-cubeId = p.loadURDF(CUBE_model, cube_pos)
+cubeId = p.loadURDF(CUBE_model)  # , cube_pos)
 
 robot_left = Robot(UR5_model, S, M, [0, 0, 0])
 # robot_left = Robot(KR16_model, [0, 0, 0])
 # robot_right = Robot(KR16_model, [0, 3, 0])
 info, _, _, _ = robot_left.get_joint_info()
 print(info)
-
 
 # simulation parameters
 # p.setGravity(0, 0, 0)
@@ -174,9 +191,17 @@ num_joints = robot_left.num_joints()
 
 time.sleep(1)
 
+robot_left.moveTargetPose_noWait(M)
 
+q = [0, 0, 0, 0, 0, 0]
+robot_left.moveTargetQ_noWait(q)
+
+time.sleep(1)
+
+print('a')
 while True:
     p.stepSimulation()
+    time.sleep(.02)
 
 # Unit tests - to test methods only
 unit_test = False
@@ -210,7 +235,7 @@ if (unit_test):
 
 ##
 
-robot_left.moveTargetQ_noWait([0]*6)
+robot_left.moveTargetQ_noWait([0] * 6)
 print('a')
 
 currentQ = robot_left.getJointQs()
@@ -268,8 +293,10 @@ print("new done")
 #         print(target_position, " ", current_Position)
 #     followed_path.append(current_Position)
 
+print('a')
 while True:
     p.stepSimulation()
+    time.sleep(.01)
 
 print(path)
 print("***************************")

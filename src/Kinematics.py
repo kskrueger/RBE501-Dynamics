@@ -105,7 +105,7 @@ def calc_ik(startQ, startPose, S, M, targetPoseT, max_time=10):
         l = 2
         deltaQ = J.T @ np.linalg.pinv(J*J.T + l**2 * np.eye(6)) @ (targetPose - currentPose)
 
-        currentQ = currentQ + deltaQ.T
+        currentQ = currentQ + deltaQ.T[..., 0]
 
         T = calc_fkine_space(S, M, currentQ.T)
         currentPose = convertPoseTo6(T)
@@ -128,12 +128,12 @@ def MatrixLog3(R):
         so3mat = np.zeros((3, 3))
     elif acosinput <= -1:
         if not np.all((1 + R[2, 2]) < .001):
-            omg = (1 / np.sqrt(2 * (1 + R[2, 2]))) @ (np.vstack([R[0, 2], R[1, 2], (1 + R[2, 2])]))
-        elif not np.all((1 + R[2, 2]) < .001):
-            omg = (1 / np.sqrt(2 * (1 + R[1, 1]))) @ (np.vstack([R[0, 1], (1 + R[1, 1]), R[2, 1]]))
+            omg = (1 / np.sqrt(2 * (1 + R[2, 2]))) * (np.vstack([R[0, 2], R[1, 2], (1 + R[2, 2])]))
+        elif not np.all((1 + R[1, 1]) < .001):
+            omg = (1 / np.sqrt(2 * (1 + R[1, 1]))) * (np.vstack([R[0, 1], (1 + R[1, 1]), R[2, 1]]))
         else:
-            omg = (1 / np.sqrt(2 * (1 + R[0, 0]))) @ (np.vstack([(1 + R[0, 0]), R[1, 0], R[2, 0]]))
-        so3mat = skew(np.pi * omg)
+            omg = (1 / np.sqrt(2 * (1 + R[0, 0]))) * (np.vstack([(1 + R[0, 0]), R[1, 0], R[2, 0]]))
+        so3mat = skew(np.pi * omg[:, 0])
     else:
         theta = np.arccos(acosinput)
         so3mat = theta * (1 / (2 * np.sin(theta))) * (R - R.T)
