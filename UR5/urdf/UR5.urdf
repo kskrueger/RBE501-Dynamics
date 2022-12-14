@@ -100,7 +100,7 @@
     </visual>
   </link>
 
-   <!-- <joint name="ee_fixed_joint" type="fixed">
+   <joint name="ee_fixed_joint" type="fixed">
     <parent link="wrist_3_link"/>
     <child link="ee_link"/>
     <origin rpy="0.0 0.0 1.57079632679" xyz="0.0 0.0823 0.0"/>
@@ -174,7 +174,7 @@
     <box size="0.02 0.02 0.15"/>
       </geometry>
     </collision>
-  </link> -->
+  </link>
 </robot>
 
 
